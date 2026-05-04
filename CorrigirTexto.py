@@ -1,9 +1,3 @@
-"""
-Corretor Ortográfico e Gramatical em Português
-Suporta arquivos .txt e .docx
-Usa a API REST do LanguageTool diretamente (sem Java, sem biblioteca extra)
-"""
-
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading

@@ -128,11 +128,20 @@ def processar_docx(caminho_entrada: str, callback_progresso):
     doc.save(caminho_saida)
     return caminho_saida, todos_erros
 
-
 def _caminho_saida(caminho_entrada: str, extensao: str) -> str:
-    p  = Path(caminho_entrada)
+    p = Path(caminho_entrada)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    return str(p.parent / f"{p.stem}_corrigido_{ts}{extensao}")
+
+    # Caminho da área de trabalho (dinâmico)
+    desktop = Path.home() / "Desktop"
+
+    # Pasta de destino
+    pasta_destino = desktop / "TEXTOS CORRIGIDOS"
+
+    # Garante que a pasta existe
+    pasta_destino.mkdir(parents=True, exist_ok=True)
+
+    return str(pasta_destino / f"{p.stem}_corrigido_{ts}{extensao}")
 
 
 def verificar_dependencias() -> list[str]:

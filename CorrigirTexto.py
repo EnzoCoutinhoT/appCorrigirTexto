@@ -1,9 +1,3 @@
-"""
-Corretor Ortográfico e Gramatical em Português
-Suporta arquivos .txt e .docx
-Usa a API REST do LanguageTool diretamente (sem Java, sem biblioteca extra)
-"""
-
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, scrolledtext
 import threading
@@ -150,26 +144,27 @@ def verificar_dependencias() -> list[str]:
     return faltando
 
 
-# ── Interface gráfica ─────────────────────────────────────────────────────────
+# ── Interface gráfica Refinada ────────────────────────────────────────────────
 class CorretorApp(tk.Tk):
-    COR_FUNDO       = "#1e1e2e"
-    COR_PAINEL      = "#2a2a3d"
-    COR_DESTAQUE    = "#7c3aed"
-    COR_DESTAQUE2   = "#a855f7"
-    COR_TEXTO       = "#e2e8f0"
-    COR_SUBTEXT     = "#94a3b8"
-    COR_SUCESSO     = "#22c55e"
-    COR_ERRO        = "#ef4444"
-    COR_AVISO       = "#f59e0b"
+    COR_FUNDO       = "#121214"  # Dark theme limpo e moderno
+    COR_PAINEL      = "#202024"
+    COR_DESTAQUE    = "#8257e5"  # Roxo vibrante
+    COR_DESTAQUE_H  = "#996dff"  # Roxo hover
+    COR_TEXTO       = "#e1e1e6"
+    COR_SUBTEXT     = "#a8a8b3"
+    COR_SUCESSO     = "#04d361"
+    COR_SUCESSO_H   = "#05e66a"
+    COR_ERRO        = "#f75a68"
+    COR_AVISO       = "#eba417"
     FONTE_NORMAL    = ("Segoe UI", 10)
     FONTE_TITULO    = ("Segoe UI", 18, "bold")
-    FONTE_SUBTITULO = ("Segoe UI", 11)
-    FONTE_MONO      = ("Consolas", 9)
+    FONTE_SUBTITULO = ("Segoe UI", 10)
+    FONTE_MONO      = ("Consolas", 10)
 
     def __init__(self):
         super().__init__()
-        self.title("Corretor Ortográfico e Gramatical — Português")
-        self.geometry("920x700")
+        self.title("Corretor Ortográfico e Gramatical")
+        self.geometry("920x720")
         self.minsize(750, 560)
         self.configure(bg=self.COR_FUNDO)
         self.resizable(True, True)
@@ -177,6 +172,16 @@ class CorretorApp(tk.Tk):
         self._pronto = False
         self._construir_ui()
         self._verificar_deps_e_iniciar()
+
+    def _add_hover(self, widget, cor_normal, cor_hover):
+        def on_enter(e):
+            if widget['state'] != 'disabled':
+                widget.config(bg=cor_hover)
+        def on_leave(e):
+            if widget['state'] != 'disabled':
+                widget.config(bg=cor_normal)
+        widget.bind("<Enter>", on_enter)
+        widget.bind("<Leave>", on_leave)
 
     def _construir_ui(self):
         self._cabecalho()
@@ -186,90 +191,102 @@ class CorretorApp(tk.Tk):
         self._rodape()
 
     def _cabecalho(self):
-        frm = tk.Frame(self, bg=self.COR_PAINEL, pady=18)
+        frm = tk.Frame(self, bg=self.COR_PAINEL, pady=25)
         frm.pack(fill="x")
-        tk.Label(frm, text="✦  Corretor PT-BR", font=self.FONTE_TITULO,
-                 bg=self.COR_PAINEL, fg=self.COR_DESTAQUE2).pack()
+        tk.Label(frm, text="✦  CORRETOR PT-BR", font=self.FONTE_TITULO,
+                 bg=self.COR_PAINEL, fg=self.COR_DESTAQUE).pack()
         tk.Label(frm,
-                 text="Ortografia · Gramática · Acentuação · Pontuação  —  via API LanguageTool",
+                 text="Ortografia · Gramática · Acentuação · Pontuação",
                  font=self.FONTE_SUBTITULO, bg=self.COR_PAINEL,
-                 fg=self.COR_SUBTEXT).pack(pady=(2, 0))
+                 fg=self.COR_SUBTEXT).pack(pady=(5, 0))
 
     def _secao_arquivo(self):
-        frm = tk.LabelFrame(self, text=" Arquivo ", font=self.FONTE_NORMAL,
-                            bg=self.COR_FUNDO, fg=self.COR_SUBTEXT,
-                            bd=1, relief="solid")
-        frm.pack(fill="x", padx=20, pady=(14, 6))
+        frm = tk.Frame(self, bg=self.COR_FUNDO)
+        frm.pack(fill="x", padx=40, pady=(30, 10))
+        
+        tk.Label(frm, text="ARQUIVO DE ENTRADA", font=("Segoe UI", 8, "bold"),
+                 bg=self.COR_FUNDO, fg=self.COR_SUBTEXT, anchor="w").pack(fill="x", pady=(0, 5))
+
         linha = tk.Frame(frm, bg=self.COR_FUNDO)
-        linha.pack(fill="x", padx=10, pady=8)
+        linha.pack(fill="x")
+        
         self._entry_arquivo = tk.Entry(
             linha, textvariable=self.arquivo_selecionado,
             font=self.FONTE_NORMAL, bg=self.COR_PAINEL, fg=self.COR_TEXTO,
-            insertbackground=self.COR_TEXTO, relief="flat", bd=6, state="readonly")
+            insertbackground=self.COR_TEXTO, relief="flat", bd=10, state="readonly")
         self._entry_arquivo.pack(side="left", fill="x", expand=True)
+        
         self._btn_selecionar = tk.Button(
-            linha, text="📂  Selecionar", font=self.FONTE_NORMAL,
-            bg=self.COR_DESTAQUE, fg="white",
-            activebackground=self.COR_DESTAQUE2, activeforeground="white",
-            relief="flat", bd=0, padx=12, pady=4, cursor="hand2",
+            linha, text="📂 Selecionar", font=("Segoe UI", 10, "bold"),
+            bg=self.COR_PAINEL, fg=self.COR_TEXTO,
+            activebackground=self.COR_PAINEL, activeforeground="white",
+            relief="flat", bd=0, padx=20, pady=8, cursor="hand2",
             state="disabled", command=self._selecionar_arquivo)
-        self._btn_selecionar.pack(side="left", padx=(8, 0))
+        self._btn_selecionar.pack(side="left", padx=(10, 0))
+        self._add_hover(self._btn_selecionar, self.COR_PAINEL, "#323238")
+
         self._btn_corrigir = tk.Button(
-            frm, text="⚡  Corrigir Arquivo",
+            frm, text="⚡ CORRIGIR ARQUIVO",
             font=("Segoe UI", 11, "bold"),
             bg=self.COR_SUCESSO, fg="white",
-            activebackground="#16a34a", activeforeground="white",
-            relief="flat", bd=0, padx=18, pady=7, cursor="hand2",
+            activebackground=self.COR_SUCESSO_H, activeforeground="white",
+            relief="flat", bd=0, padx=20, pady=12, cursor="hand2",
             state="disabled", command=self._iniciar_correcao)
-        self._btn_corrigir.pack(pady=(0, 10))
+        self._btn_corrigir.pack(pady=(15, 0), fill="x")
+        self._add_hover(self._btn_corrigir, self.COR_SUCESSO, self.COR_SUCESSO_H)
 
     def _secao_progresso(self):
         frm = tk.Frame(self, bg=self.COR_FUNDO)
-        frm.pack(fill="x", padx=20, pady=4)
+        frm.pack(fill="x", padx=40, pady=10)
         self._lbl_status = tk.Label(
             frm, text="Verificando conexão com a API…",
             font=self.FONTE_NORMAL, bg=self.COR_FUNDO,
             fg=self.COR_SUBTEXT, anchor="w")
         self._lbl_status.pack(fill="x")
+        
         style = ttk.Style(self)
         style.theme_use("default")
-        style.configure("Roxo.Horizontal.TProgressbar",
+        style.configure("Slim.Horizontal.TProgressbar",
                          troughcolor=self.COR_PAINEL,
                          background=self.COR_DESTAQUE,
                          bordercolor=self.COR_PAINEL,
-                         lightcolor=self.COR_DESTAQUE2,
-                         darkcolor=self.COR_DESTAQUE)
+                         lightcolor=self.COR_DESTAQUE,
+                         darkcolor=self.COR_DESTAQUE,
+                         thickness=4) # Barra bem mais fina e elegante
+        
         self._barra = ttk.Progressbar(
-            frm, style="Roxo.Horizontal.TProgressbar",
+            frm, style="Slim.Horizontal.TProgressbar",
             orient="horizontal", length=200, mode="determinate")
-        self._barra.pack(fill="x", pady=(4, 0))
+        self._barra.pack(fill="x", pady=(8, 0))
 
     def _secao_log(self):
-        frm = tk.LabelFrame(self, text=" Log de Erros Detectados ",
-                            font=self.FONTE_NORMAL,
-                            bg=self.COR_FUNDO, fg=self.COR_SUBTEXT,
-                            bd=1, relief="solid")
-        frm.pack(fill="both", expand=True, padx=20, pady=(10, 6))
+        frm = tk.Frame(self, bg=self.COR_FUNDO)
+        frm.pack(fill="both", expand=True, padx=40, pady=(10, 20))
+        
+        tk.Label(frm, text="LOG DE PROCESSAMENTO", font=("Segoe UI", 8, "bold"),
+                 bg=self.COR_FUNDO, fg=self.COR_SUBTEXT, anchor="w").pack(fill="x", pady=(0, 5))
+
         self._log = scrolledtext.ScrolledText(
             frm, font=self.FONTE_MONO,
             bg=self.COR_PAINEL, fg=self.COR_TEXTO,
             insertbackground=self.COR_TEXTO,
             selectbackground=self.COR_DESTAQUE,
-            relief="flat", bd=0, wrap="word", state="disabled")
-        self._log.pack(fill="both", expand=True, padx=6, pady=6)
+            relief="flat", bd=12, wrap="word", state="disabled")
+        self._log.pack(fill="both", expand=True)
+        
         self._log.tag_config("info",     foreground=self.COR_SUBTEXT)
         self._log.tag_config("ok",       foreground=self.COR_SUCESSO)
         self._log.tag_config("erro",     foreground=self.COR_ERRO)
         self._log.tag_config("aviso",    foreground=self.COR_AVISO)
-        self._log.tag_config("destaque", foreground=self.COR_DESTAQUE2,
-                              font=("Consolas", 9, "bold"))
+        self._log.tag_config("destaque", foreground=self.COR_DESTAQUE_H,
+                              font=("Consolas", 10, "bold"))
 
     def _rodape(self):
-        frm = tk.Frame(self, bg=self.COR_PAINEL, pady=6)
+        frm = tk.Frame(self, bg=self.COR_FUNDO, pady=10)
         frm.pack(fill="x", side="bottom")
         tk.Label(frm,
-                 text="Arquivo corrigido salvo na mesma pasta com sufixo _corrigido_YYYYMMDD_HHMMSS  •  Requer internet",
-                 font=("Segoe UI", 8), bg=self.COR_PAINEL, fg=self.COR_SUBTEXT).pack()
+                 text="Salva uma cópia com sufixo _corrigido na pasta original  •  Requer internet",
+                 font=("Segoe UI", 8), bg=self.COR_FUNDO, fg=self.COR_SUBTEXT).pack()
 
     def _log_escrever(self, texto: str, tag: str = "info"):
         self._log.configure(state="normal")
@@ -286,32 +303,30 @@ class CorretorApp(tk.Tk):
     def _verificar_deps_e_iniciar(self):
         faltando = verificar_dependencias()
         if faltando:
-            self._log_escrever("❌  Dependências não instaladas:", "erro")
+            self._log_escrever("❌ Dependências não instaladas:", "erro")
             for lib in faltando:
-                self._log_escrever(f"    python -m pip install {lib}", "aviso")
+                self._log_escrever(f"   python -m pip install {lib}", "aviso")
             self._log_escrever("\nInstale e reinicie o aplicativo.", "erro")
-            self._set_status("Dependências ausentes — veja o log.", 0)
+            self._set_status("Dependências ausentes.", 0)
             return
         threading.Thread(target=self._testar_api, daemon=True).start()
 
     def _testar_api(self):
         self._set_status("Testando conexão com a API do LanguageTool…", 5)
-        self._log_escrever("⏳  Testando API do LanguageTool…", "info")
+        self._log_escrever("⏳ Testando API do LanguageTool…", "info")
         try:
             _chamar_api("Testando conexão.")
             self._pronto = True
-            self._set_status("API pronta. Selecione um arquivo para começar.", 0)
-            self._log_escrever("✅  API do LanguageTool acessível (pt-BR).", "ok")
-            self._log_escrever("ℹ️   Sem Java necessário — usa API REST via internet.", "info")
+            self._set_status("Pronto. Selecione um arquivo para começar.", 0)
+            self._log_escrever("✅ Conectado com sucesso (pt-BR).", "ok")
             self._btn_selecionar.configure(state="normal")
         except Exception as e:
-            self._log_escrever(f"❌  Erro ao conectar com a API: {e}", "erro")
-            self._log_escrever("    Verifique sua conexão com a internet.", "aviso")
-            self._set_status("Sem conexão com a API. Veja o log.", 0)
+            self._log_escrever(f"❌ Erro de conexão: {e}", "erro")
+            self._set_status("Falha na conexão.", 0)
 
     def _selecionar_arquivo(self):
         caminho = filedialog.askopenfilename(
-            title="Selecionar arquivo para corrigir",
+            title="Selecionar arquivo",
             filetypes=[("Documentos", "*.txt *.docx"),
                        ("Texto simples", "*.txt"),
                        ("Word", "*.docx"),
@@ -322,11 +337,9 @@ class CorretorApp(tk.Tk):
         ext = Path(caminho).suffix.lower()
         if ext in (".txt", ".docx") and self._pronto:
             self._btn_corrigir.configure(state="normal")
-            self._log_escrever(
-                f"\n📄  Arquivo selecionado: {os.path.basename(caminho)}", "destaque")
+            self._log_escrever(f"\n📄 Selecionado: {os.path.basename(caminho)}", "destaque")
         elif ext not in (".txt", ".docx"):
-            messagebox.showwarning("Formato inválido",
-                                   "Apenas arquivos .txt e .docx são suportados.")
+            messagebox.showwarning("Aviso", "Apenas arquivos .txt e .docx são suportados.")
             self._btn_corrigir.configure(state="disabled")
 
     def _iniciar_correcao(self):
@@ -342,9 +355,8 @@ class CorretorApp(tk.Tk):
     def _executar_correcao(self, caminho: str):
         ext = Path(caminho).suffix.lower()
         try:
-            self._log_escrever("\n" + "─" * 54, "info")
-            self._log_escrever(
-                f"🔍  Iniciando correção: {os.path.basename(caminho)}", "destaque")
+            self._log_escrever("\n" + "─" * 50, "info")
+            self._log_escrever(f"🔍 Iniciando correção: {os.path.basename(caminho)}", "destaque")
 
             def progresso(msg, pct):
                 self._set_status(msg, pct)
@@ -357,34 +369,27 @@ class CorretorApp(tk.Tk):
 
             self._set_status("Concluído!", 100)
             self._relatar_erros(erros)
-            self._log_escrever(f"\n✅  Arquivo salvo em:\n   {caminho_saida}", "ok")
-            self._log_escrever("─" * 54, "info")
-            messagebox.showinfo(
-                "Correção concluída",
-                f"Arquivo corrigido salvo em:\n{caminho_saida}\n\n"
-                f"Total de correções aplicadas: {len(erros)}")
+            self._log_escrever(f"\n✅ Salvo em:\n   {caminho_saida}", "ok")
+            self._log_escrever("─" * 50, "info")
         except Exception as e:
-            self._log_escrever(f"\n❌  Erro durante a correção: {e}", "erro")
-            self._set_status("Erro durante a correção. Veja o log.", 0)
-            messagebox.showerror("Erro", str(e))
+            self._log_escrever(f"\n❌ Erro: {e}", "erro")
+            self._set_status("Erro durante a execução.", 0)
         finally:
             self._btn_corrigir.configure(state="normal")
             self._btn_selecionar.configure(state="normal")
 
     def _relatar_erros(self, erros: list[dict]):
         if not erros:
-            self._log_escrever("\n🎉  Nenhum erro encontrado!", "ok")
+            self._log_escrever("\n🎉 Nenhum erro encontrado!", "ok")
             return
-        self._log_escrever(f"\n⚠️   {len(erros)} correção(ões) aplicada(s):", "aviso")
+        self._log_escrever(f"\n⚠️  {len(erros)} correções aplicadas:", "aviso")
         for i, e in enumerate(erros[:60], 1):
             sug    = ", ".join(e["sugestoes"]) if e["sugestoes"] else "sem sugestão"
             trecho = repr(e["trecho"])[:40]
             msg    = e["mensagem"][:80]
-            self._log_escrever(
-                f"  {i:>3}. {trecho}  →  {sug}\n       ({msg})", "aviso")
+            self._log_escrever(f"  {i:>3}. {trecho}  →  {sug}\n       ({msg})", "aviso")
         if len(erros) > 60:
-            self._log_escrever(
-                f"  … e mais {len(erros)-60} correção(ões) não exibida(s).", "info")
+            self._log_escrever(f"  … e mais {len(erros)-60} ocultas.", "info")
 
 
 if __name__ == "__main__":

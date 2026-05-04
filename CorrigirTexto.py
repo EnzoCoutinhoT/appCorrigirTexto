@@ -135,10 +135,10 @@ def _caminho_saida(caminho_entrada: str, extensao: str) -> str:
     # Caminho da área de trabalho (dinâmico)
     desktop = Path.home() / "Desktop"
 
-    # Pasta de destino
+    
     pasta_destino = desktop / "TEXTOS CORRIGIDOS"
 
-    # Garante que a pasta existe
+    
     pasta_destino.mkdir(parents=True, exist_ok=True)
 
     return str(pasta_destino / f"{p.stem}_corrigido_{ts}{extensao}")

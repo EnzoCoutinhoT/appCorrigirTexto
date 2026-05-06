@@ -216,7 +216,6 @@ class CorretorApp(tk.Tk):
         self.minsize(750, 560)
         self.configure(bg=self.COR_FUNDO)
         self.resizable(True, True)
-        self.iconbitmap("icone_app.ico")
         self.arquivo_selecionado = tk.StringVar()
         self._pronto = False
         self._construir_ui()

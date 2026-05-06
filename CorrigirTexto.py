@@ -183,14 +183,14 @@ class CorretorApp(tk.Tk):
         self._verificar_deps_e_iniciar()
 
     def _add_hover(self, widget, cor_normal, cor_hover):
-        def on_enter(e):
-            if widget['state'] != 'disabled':
-                widget.config(bg=cor_hover)
-        def on_leave(e):
-            if widget['state'] != 'disabled':
-                widget.config(bg=cor_normal)
-        widget.bind("<Enter>", on_enter)
-        widget.bind("<Leave>", on_leave)
+            def on_enter(e):
+                if str(widget['state']) != 'disabled':
+                    widget.config(bg=cor_hover, activebackground=cor_hover)
+            def on_leave(e):
+                if str(widget['state']) != 'disabled':
+                    widget.config(bg=cor_normal, activebackground=cor_normal)
+            widget.bind("<Enter>", on_enter)
+            widget.bind("<Leave>", on_leave)
 
     def _construir_ui(self):
         self._cabecalho()
@@ -227,12 +227,12 @@ class CorretorApp(tk.Tk):
         
         self._btn_selecionar = tk.Button(
             linha, text="📂 Selecionar", font=("Segoe UI", 10, "bold"),
-            bg=self.COR_PAINEL, fg=self.COR_TEXTO,
-            activebackground=self.COR_PAINEL, activeforeground="white",
+            bg="#1a3a5c", fg="white",
+            activebackground="#1e4a75", activeforeground="white",
             relief="flat", bd=0, padx=20, pady=8, cursor="hand2",
             state="disabled", command=self._selecionar_arquivo)
         self._btn_selecionar.pack(side="left", padx=(10, 0))
-        self._add_hover(self._btn_selecionar, self.COR_PAINEL, "#323238")
+        self._add_hover(self._btn_selecionar, "#1a3a5c", "#1e4a75")
 
         self._btn_corrigir = tk.Button(
             frm, text="⚡ CORRIGIR ARQUIVO",

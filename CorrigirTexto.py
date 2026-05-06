@@ -4,6 +4,7 @@ import threading
 import os
 import json
 import time
+import re
 import urllib.request
 import urllib.parse
 from pathlib import Path
@@ -15,6 +16,29 @@ API_URL = "https://api.languagetool.org/v2/check"
 IDIOMA  = "pt-BR"
 PAUSA_ENTRE_BLOCOS = 1.5
 TAMANHO_BLOCO = 1500
+
+
+def _extrair_nomes_proprios(texto: str) -> dict:
+    padrao = re.compile(r'(?<![.!?\n\s])\s+([A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç]+(?:\s+[A-ZÁÉÍÓÚÀÂÊÔÃÕÜÇ][a-záéíóúàâêôãõüç]+)*)')
+    mapeamento = {}
+    contador = [0]
+
+    def substituir(match):
+        nome = match.group(1)
+        placeholder = f"__NOME{contador[0]}__"
+        mapeamento[placeholder] = nome
+        contador[0] += 1
+        return match.group(0).replace(nome, placeholder)
+
+    texto_processado = padrao.sub(substituir, texto)
+    return texto_processado, mapeamento
+
+
+def _restaurar_nomes_proprios(texto: str, mapeamento: dict) -> str:
+    """Substitui os placeholders de volta pelos nomes originais."""
+    for placeholder, nome in mapeamento.items():
+        texto = texto.replace(placeholder, nome)
+    return texto
 
 
 def _chamar_api(texto: str) -> list[dict]:
@@ -42,6 +66,11 @@ def _aplicar_correcoes(texto: str, matches: list[dict]) -> tuple[str, list[dict]
         length = m["length"]
         repls  = [r["value"] for r in m.get("replacements", [])]
         trecho = texto[offset: offset + length]
+
+        # Ignora correções que envolvam placeholders de nomes próprios
+        if "__NOME" in trecho:
+            continue
+
         erros.append({
             "trecho":    trecho,
             "mensagem":  m.get("message", ""),
@@ -73,8 +102,16 @@ def corrigir_texto_completo(texto: str, callback=None) -> tuple[str, list[dict]]
     for i, bloco in enumerate(blocos):
         if callback:
             callback(i, len(blocos))
-        matches = _chamar_api(bloco)
-        bloco_corrigido, erros = _aplicar_correcoes(bloco, matches)
+
+        # Protege nomes próprios antes de enviar para a API
+        bloco_protegido, mapeamento = _extrair_nomes_proprios(bloco)
+
+        matches = _chamar_api(bloco_protegido)
+        bloco_corrigido, erros = _aplicar_correcoes(bloco_protegido, matches)
+
+        # Restaura os nomes próprios após a correção
+        bloco_corrigido = _restaurar_nomes_proprios(bloco_corrigido, mapeamento)
+
         resultado.append(bloco_corrigido)
         todos_erros.extend(erros)
         if i < len(blocos) - 1:
@@ -111,8 +148,16 @@ def processar_docx(caminho_entrada: str, callback_progresso):
     for i, paragrafo in enumerate(paragrafos_validos):
         pct = 15 + int((i / max(total, 1)) * 70)
         callback_progresso(f"Corrigindo parágrafo {i+1}/{total}…", pct)
-        matches = _chamar_api(paragrafo.text)
-        texto_corrigido, erros = _aplicar_correcoes(paragrafo.text, matches)
+
+        # Protege nomes próprios
+        texto_protegido, mapeamento = _extrair_nomes_proprios(paragrafo.text)
+
+        matches = _chamar_api(texto_protegido)
+        texto_corrigido, erros = _aplicar_correcoes(texto_protegido, matches)
+
+        # Restaura os nomes próprios
+        texto_corrigido = _restaurar_nomes_proprios(texto_corrigido, mapeamento)
+
         todos_erros.extend(erros)
         if paragrafo.runs:
             paragrafo.runs[0].text = texto_corrigido
@@ -128,19 +173,13 @@ def processar_docx(caminho_entrada: str, callback_progresso):
     doc.save(caminho_saida)
     return caminho_saida, todos_erros
 
+
 def _caminho_saida(caminho_entrada: str, extensao: str) -> str:
-    p = Path(caminho_entrada)
+    p  = Path(caminho_entrada)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    # Caminho da área de trabalho (dinâmico)
     desktop = Path.home() / "Desktop"
-
-    
     pasta_destino = desktop / "TEXTOS CORRIGIDOS"
-
-    
     pasta_destino.mkdir(parents=True, exist_ok=True)
-
     return str(pasta_destino / f"{p.stem}_corrigido_{ts}{extensao}")
 
 
@@ -153,12 +192,12 @@ def verificar_dependencias() -> list[str]:
     return faltando
 
 
-# ── Interface gráfica Refinada ────────────────────────────────────────────────
+# ── Interface gráfica ─────────────────────────────────────────────────────────
 class CorretorApp(tk.Tk):
-    COR_FUNDO       = "#121214"  # Dark theme limpo e moderno
+    COR_FUNDO       = "#121214"
     COR_PAINEL      = "#202024"
-    COR_DESTAQUE    = "#8257e5"  # Roxo vibrante
-    COR_DESTAQUE_H  = "#996dff"  # Roxo hover
+    COR_DESTAQUE    = "#8257e5"
+    COR_DESTAQUE_H  = "#996dff"
     COR_TEXTO       = "#e1e1e6"
     COR_SUBTEXT     = "#a8a8b3"
     COR_SUCESSO     = "#04d361"
@@ -184,11 +223,11 @@ class CorretorApp(tk.Tk):
 
     def _add_hover(self, widget, cor_normal, cor_hover):
         def on_enter(e):
-            if widget['state'] != 'disabled':
-                widget.config(bg=cor_hover)
+            if str(widget['state']) != 'disabled':
+                widget.config(bg=cor_hover, activebackground=cor_hover)
         def on_leave(e):
-            if widget['state'] != 'disabled':
-                widget.config(bg=cor_normal)
+            if str(widget['state']) != 'disabled':
+                widget.config(bg=cor_normal, activebackground=cor_normal)
         widget.bind("<Enter>", on_enter)
         widget.bind("<Leave>", on_leave)
 
@@ -212,27 +251,27 @@ class CorretorApp(tk.Tk):
     def _secao_arquivo(self):
         frm = tk.Frame(self, bg=self.COR_FUNDO)
         frm.pack(fill="x", padx=40, pady=(30, 10))
-        
+
         tk.Label(frm, text="ARQUIVO DE ENTRADA", font=("Segoe UI", 8, "bold"),
                  bg=self.COR_FUNDO, fg=self.COR_SUBTEXT, anchor="w").pack(fill="x", pady=(0, 5))
 
         linha = tk.Frame(frm, bg=self.COR_FUNDO)
         linha.pack(fill="x")
-        
+
         self._entry_arquivo = tk.Entry(
             linha, textvariable=self.arquivo_selecionado,
             font=self.FONTE_NORMAL, bg=self.COR_PAINEL, fg=self.COR_TEXTO,
             insertbackground=self.COR_TEXTO, relief="flat", bd=10, state="readonly")
         self._entry_arquivo.pack(side="left", fill="x", expand=True)
-        
+
         self._btn_selecionar = tk.Button(
             linha, text="📂 Selecionar", font=("Segoe UI", 10, "bold"),
-            bg=self.COR_PAINEL, fg=self.COR_TEXTO,
-            activebackground=self.COR_PAINEL, activeforeground="white",
+            bg="#1a3a5c", fg="white",
+            activebackground="#1e4a75", activeforeground="white",
             relief="flat", bd=0, padx=20, pady=8, cursor="hand2",
             state="disabled", command=self._selecionar_arquivo)
         self._btn_selecionar.pack(side="left", padx=(10, 0))
-        self._add_hover(self._btn_selecionar, self.COR_PAINEL, "#323238")
+        self._add_hover(self._btn_selecionar, "#1a3a5c", "#1e4a75")
 
         self._btn_corrigir = tk.Button(
             frm, text="⚡ CORRIGIR ARQUIVO",
@@ -252,7 +291,7 @@ class CorretorApp(tk.Tk):
             font=self.FONTE_NORMAL, bg=self.COR_FUNDO,
             fg=self.COR_SUBTEXT, anchor="w")
         self._lbl_status.pack(fill="x")
-        
+
         style = ttk.Style(self)
         style.theme_use("default")
         style.configure("Slim.Horizontal.TProgressbar",
@@ -261,8 +300,8 @@ class CorretorApp(tk.Tk):
                          bordercolor=self.COR_PAINEL,
                          lightcolor=self.COR_DESTAQUE,
                          darkcolor=self.COR_DESTAQUE,
-                         thickness=4) # Barra bem mais fina e elegante
-        
+                         thickness=4)
+
         self._barra = ttk.Progressbar(
             frm, style="Slim.Horizontal.TProgressbar",
             orient="horizontal", length=200, mode="determinate")
@@ -271,7 +310,7 @@ class CorretorApp(tk.Tk):
     def _secao_log(self):
         frm = tk.Frame(self, bg=self.COR_FUNDO)
         frm.pack(fill="both", expand=True, padx=40, pady=(10, 20))
-        
+
         tk.Label(frm, text="LOG DE PROCESSAMENTO", font=("Segoe UI", 8, "bold"),
                  bg=self.COR_FUNDO, fg=self.COR_SUBTEXT, anchor="w").pack(fill="x", pady=(0, 5))
 
@@ -282,7 +321,7 @@ class CorretorApp(tk.Tk):
             selectbackground=self.COR_DESTAQUE,
             relief="flat", bd=12, wrap="word", state="disabled")
         self._log.pack(fill="both", expand=True)
-        
+
         self._log.tag_config("info",     foreground=self.COR_SUBTEXT)
         self._log.tag_config("ok",       foreground=self.COR_SUCESSO)
         self._log.tag_config("erro",     foreground=self.COR_ERRO)
@@ -294,7 +333,7 @@ class CorretorApp(tk.Tk):
         frm = tk.Frame(self, bg=self.COR_FUNDO, pady=10)
         frm.pack(fill="x", side="bottom")
         tk.Label(frm,
-                 text="Salva uma cópia com sufixo _corrigido na pasta original  •  Requer internet",
+                 text="Salva os arquivos corrigidos em: Área de Trabalho / TEXTOS CORRIGIDOS  •  Requer internet",
                  font=("Segoe UI", 8), bg=self.COR_FUNDO, fg=self.COR_SUBTEXT).pack()
 
     def _log_escrever(self, texto: str, tag: str = "info"):
@@ -328,6 +367,7 @@ class CorretorApp(tk.Tk):
             self._pronto = True
             self._set_status("Pronto. Selecione um arquivo para começar.", 0)
             self._log_escrever("✅ Conectado com sucesso (pt-BR).", "ok")
+            self._log_escrever("ℹ️  Nomes próprios serão preservados automaticamente.", "info")
             self._btn_selecionar.configure(state="normal")
         except Exception as e:
             self._log_escrever(f"❌ Erro de conexão: {e}", "erro")
